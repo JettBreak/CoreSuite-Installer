@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CoreSuite Installer Replay</title>
+<meta name="description" content="A step-by-step replay of a CoreSuite first install on AlmaLinux 9: the questions, the Hub and four apps connected, and the final checks.">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a server console on the left, the install's timeline and the current step's explanation beside it; stacks on phones. */
+:root {
+  --bg: #eceff5;
+  --fg: #1a2130;
+  --muted: #5a6478;
+  --panel: #ffffff;
+  --line: #d3d9e5;
+  --accent: #2433a8;
+  --ok: #1d7a4a;
+  --wait: #9a6a00;
+  --chip: #e3e7f2;
+  /* The console keeps one look in both themes, as a real terminal does. */
+  --term-bg: #0d1017;
+  --term-fg: #d6dbe6;
+  --term-dim: #8a93a6;
+  --term-head: #ffffff;
+  --term-ok: #4fd18b;
+  --term-warn: #f2c14e;
+  --term-fail: #ff6b6b;
+  --newt-root: #2135b5;
+  --newt-win: #c9cbd2;
+  --newt-ink: #111318;
+  --newt-title: #b3121b;
+  --newt-sel: #b3121b;
+  --newt-sel-ink: #ffffff;
+  --newt-entry: #2135b5;
+  --newt-entry-ink: #ffffff;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10141c; --fg: #e3e7ef; --muted: #98a2b6; --panel: #171c27; --line: #2a3242;
+    --accent: #8f9cff; --ok: #5bd394; --wait: #e8bb52; --chip: #222a39; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10141c; --fg: #e3e7ef; --muted: #98a2b6; --panel: #171c27; --line: #2a3242;
+  --accent: #8f9cff; --ok: #5bd394; --wait: #e8bb52; --chip: #222a39; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 40px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: grid; gap: 6px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(1.6rem, 3.2vw, 2.3rem); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 70ch; }
+.tag { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+@media (max-width: 960px) { .stage { grid-template-columns: minmax(0, 1fr); } }
+
+/* Console */
+.console { background: var(--term-bg); border-radius: 10px; overflow: hidden; border: 1px solid #000; box-shadow: 0 10px 30px rgba(10, 14, 30, 0.18); min-width: 0; }
+.bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #1a1f2b; color: var(--term-dim); font-family: var(--mono); font-size: 0.75rem; }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 10px; height: 10px; border-radius: 50%; background: #3a4152; display: block; }
+.bar .host { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.screen-wrap { overflow-x: auto; }
+.screen {
+  position: relative; width: 80ch; height: 31em; margin: 0; padding: 12px 14px;
+  font-family: var(--mono); font-size: clamp(11px, 1.15vw, 13.5px); line-height: 1.45; color: var(--term-fg);
+}
+.out { white-space: pre; height: 100%; overflow: hidden; }
+.out .l { display: block; min-height: 1.45em; }
+.l.head { color: var(--term-head); font-weight: 600; }
+.l.dim { color: var(--term-dim); }
+.l.ok { color: var(--term-fg); }
+.l.ok b { color: var(--term-ok); font-weight: 600; }
+.l.warn { color: var(--term-warn); }
+.l.prompt { color: var(--term-fg); }
+.l.prompt b { color: var(--term-ok); font-weight: 600; }
+.caret { display: inline-block; width: 0.6em; height: 1.1em; vertical-align: -0.2em; background: var(--term-fg); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* whiptail (newt) screens */
+.newt { position: absolute; inset: 0; background: var(--newt-root); display: grid; place-items: center; padding: 1.4em 1em; }
+.newt[hidden] { display: none !important; }
+.newt .backtitle { position: absolute; top: 0.4em; left: 1em; color: #e8ebff; font-family: var(--mono); }
+.dlg { background: var(--newt-win); color: var(--newt-ink); width: min(62ch, 100%); box-shadow: 1ch 0.7em 0 rgba(0, 0, 0, 0.55); border: 1px solid #f4f5f8; position: relative; padding: 1.1em 2ch 1em; }
+.dlg .ttl { position: absolute; top: -0.75em; left: 50%; transform: translateX(-50%); background: var(--newt-win); color: var(--newt-title); padding: 0 1ch; white-space: nowrap; font-weight: 600; }
+.dlg .q { white-space: pre-wrap; margin-bottom: 0.9em; }
+.dlg .items { border: 1px solid #f4f5f8; padding: 0.4em 1ch; margin-bottom: 0.9em; display: grid; gap: 0; }
+.dlg .it { white-space: pre; padding: 0 1ch; }
+.dlg .it.cur { background: var(--newt-sel); color: var(--newt-sel-ink); }
+.dlg .entry { background: var(--newt-entry); color: var(--newt-entry-ink); padding: 0 1ch; margin-bottom: 0.9em; white-space: pre; min-height: 1.45em; overflow: hidden; }
+.dlg .btns { display: flex; justify-content: space-around; }
+.dlg .btn { padding: 0 1.5ch; white-space: pre; }
+.dlg .btn.cur { background: var(--newt-sel); color: var(--newt-sel-ink); }
+.dlg .keyhint { position: absolute; right: 1ch; bottom: -1.7em; color: #e8ebff; font-size: 0.85em; }
+.newt .help { position: absolute; bottom: 0.4em; left: 1em; color: #e8ebff; font-family: var(--mono); }
+
+/* Controls */
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 12px; background: #141924; border-top: 1px solid #000; }
+.controls button, .controls select {
+  font: 600 0.85rem var(--body); border-radius: 6px; border: 1px solid #2f3747; background: #1f2533; color: #e3e7ef;
+  padding: 6px 12px; cursor: pointer;
+}
+.controls button.primary { background: #3346d6; border-color: #3346d6; }
+.controls button:focus-visible, .controls select:focus-visible { outline: 2px solid #8f9cff; outline-offset: 2px; }
+.controls .clock { margin-left: auto; font-family: var(--mono); font-size: 0.8rem; color: var(--term-dim); font-variant-numeric: tabular-nums; }
+.controls label { color: var(--term-dim); font-size: 0.8rem; display: flex; gap: 6px; align-items: center; }
+
+/* Side panel */
+aside { display: grid; gap: 16px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.card h2 { font-family: var(--display); font-weight: 700; font-size: 1rem; margin: 0 0 10px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.steps li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 4px 6px; border-radius: 6px; font-size: 0.9rem; }
+.steps li .mk { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--line); justify-self: center; }
+.steps li .min { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.steps li.done .mk { background: var(--ok); border-color: var(--ok); }
+.steps li.now { background: var(--chip); font-weight: 700; }
+.steps li.now .mk { border-color: var(--accent); background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+.steps li.todo { color: var(--muted); }
+@keyframes pulse { 50% { transform: scale(0.65); } }
+.explain p { margin: 0; color: var(--fg); }
+.explain .what { font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 4px; }
+.note { font-size: 0.82rem; color: var(--muted); margin: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .caret, .steps li.now .mk { animation: none; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="tag">Simulation · sample data</span>
+    <h1>CoreSuite Installer Replay</h1>
+    <p class="lede">A replay of a first install on a fresh AlmaLinux 9 server: the questions as IT answers them, then the Hub and four apps installed and connected, ending with the checks. The output comes from real test runs on 30 October 2026; keys, passwords and links are left out.</p>
+  </header>
+
+  <div class="stage">
+    <section class="console" aria-label="Server console">
+      <div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="host">root@coresuite: /opt/coresuite/installer</span></div>
+      <div class="screen-wrap">
+        <div class="screen" id="screen">
+          <div class="out" id="out" aria-live="polite"></div>
+          <div class="newt" id="newt" hidden>
+            <div class="backtitle">CoreSuite installer</div>
+            <div class="dlg" id="dlg"></div>
+            <div class="help">&lt;Tab&gt;/&lt;Alt-Tab&gt; between elements | &lt;Space&gt; selects | &lt;F12&gt; next screen</div>
+          </div>
+        </div>
+      </div>
+      <div class="controls">
+        <button type="button" class="primary" id="play">Play</button>
+        <button type="button" id="restart">Restart</button>
+        <label for="speed">Speed
+          <select id="speed">
+            <option value="0.5">0.5×</option>
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="4">4×</option>
+          </select>
+        </label>
+        <span class="clock" id="clock" title="Time a real install takes up to this point">server time 0 min</span>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card explain" id="explain">
+        <div class="what" id="what">Before it starts</div>
+        <p id="why">IT copies one file, get-coresuite.sh, to the server and runs it as root. It fetches the installer from GitHub with a read-only key, then starts it.</p>
+      </div>
+      <div class="card">
+        <h2>The install</h2>
+        <ol class="steps" id="steps"></ol>
+      </div>
+      <p class="note">Minutes are what each step took on a real server in the test runs; the replay runs faster.</p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Steps as the installer prints them, with what each does and roughly how long it took in the test runs.
+  const STEPS = [
+    { id: 'start', name: 'Get the installer', min: 1, why: 'get-coresuite.sh makes a read-only deploy key for the private CoreSuite repository, waits until GitHub accepts it, fetches the installer and starts it.' },
+    { id: 'check', name: 'Check the server', min: 1, why: 'AlmaLinux, Rocky, RHEL or CentOS Stream 9 or later, root, enough CPU, memory and disk, ports 80 and 443 free, the internet reachable, SELinux mode.' },
+    { id: 'questions', name: 'Questions', min: 3, why: 'Which apps, staging or production, the addresses, certificates, mail, the first admin and where the code comes from. Nothing is installed before the summary is confirmed.' },
+    { id: 'keys', name: 'Deploy keys', min: 2, why: 'One read-only key per repository. IT adds each on GitHub under Settings › Deploy keys; the installer checks every key before it goes on.' },
+    { id: 'code', name: 'Code', min: 1, why: 'Read-only mirrors of each repository in /opt/coresuite/repos. The apps pull from these, so app users never hold a GitHub key.' },
+    { id: 'packages', name: 'Packages', min: 4, why: 'PHP 8.5.12 from Remi with every extension the apps list in their manifests, Composer, MySQL 8.4, Apache and Supervisor.' },
+    { id: 'certs', name: 'Certificates', min: 1, why: 'The servers are VPN-only, so the installer makes a CoreSuite certificate authority and a certificate for each address. IT installs the authority once on staff devices.' },
+    { id: 'hub', name: 'CoreNexus Hub', min: 4, why: 'The Hub first: its database, settings, code, signing keys, the standard request forms and checklists, its workers, and the first admin.' },
+    { id: 'core-inventory', name: 'CoreInventory', min: 3, why: 'app:suite:connect registers the app in the Hub from its manifest: sign-in, webhook and what the Hub may call. Then employees from the Hub, and the first admin.' },
+    { id: 'core-attendance', name: 'CoreAttendance', min: 2, why: 'Registered with its two punch topics, so kiosk punches reach the Hub’s attendance sheet.' },
+    { id: 'core-task', name: 'CoreTask', min: 3, why: 'Registered with its task topics and notification types. Its link to CoreProject waits, because CoreProject is not installed yet.' },
+    { id: 'core-project', name: 'CoreProject', min: 2, why: 'Registered with its eight topics. It runs on cron, not a worker.' },
+    { id: 'link', name: 'Connect the apps', min: 1, why: 'Every app is connected again, so links that waited for another app are made now. The Hub learns the apps’ addresses for its home cards and meeting lists.' },
+    { id: 'backups', name: 'Backups and logs', min: 1, why: 'A nightly backup of every database and upload folder, kept 14 days on the server, and log rotation.' },
+    { id: 'checks', name: 'Checks', min: 1, why: 'Each app answers over HTTPS, passes its own health check (database, migrations, Hub connection, queue) and has its worker running. The Hub confirms each app has everything its manifest asks for.' },
+  ];
+
+  const APPS = [
+    ['core-inventory', 'CoreInventory', 'inventory'],
+    ['core-attendance', 'CoreAttendance', 'attendance'],
+    ['core-task', 'CoreTask', 'task'],
+    ['core-project', 'CoreProject', 'project'],
+  ];
+
+  // The replay, as a list of actions. Lines are the installer's real output.
+  const SCRIPT = [
+    { step: 'start' },
+    { prompt: 'sudo bash get-coresuite.sh' },
+    { line: 'Cloning into \'/opt/coresuite/installer\'...', cls: 'dim', wait: 900 },
+    { step: 'check' },
+    { head: '== Checking the server' },
+    { line: 'System: AlmaLinux 9.8 (Olive Jaguar)' },
+    { line: 'CPUs: 8, memory: 7933 MB, free on /var: 38 GB' },
+    { line: 'Internet: reachable.' },
+    { line: 'SELinux: Enforcing' },
+    { head: '== Installer tools' },
+    { line: '  dnf -y install jq newt git tar openssl policycoreutils-python-utils …', cls: 'dim', wait: 900 },
+    { step: 'questions' },
+    { checklist: { title: 'CoreSuite installer', q: 'Which apps? (CoreNexus Hub is always installed, first.)', items: APPS.map(([id, name]) => [id, name]), on: [0, 1, 2, 3], keys: [] } },
+    { menu: { q: 'Which environment is this server?', items: [['staging', 'Staging: the dev branch, test data only'], ['production', 'Production: the main branch']], pick: 0 } },
+    { input: { q: 'Which branch of each repository?', value: 'dev' } },
+    { input: { q: 'Base domain\n\nUntil the company domain exists; Change addresses moves the apps later', value: 'coresuite.internal' } },
+    { input: { q: 'Address of CoreNexus Hub', value: 'hub.coresuite.internal' } },
+    ...APPS.map(([, name, prefix]) => ({ input: { q: 'Address of ' + name, value: prefix + '.coresuite.internal' } })),
+    { menu: { q: 'Certificates', items: [['ca', 'CoreSuite certificate authority (VPN-only servers)'], ['files', 'The company’s certificate files']], pick: 0 } },
+    { menu: { q: 'Mail server for the apps', items: [['none', 'None for now (nothing is sent)'], ['smtp', 'An SMTP server']], pick: 0 } },
+    { input: { q: 'Sender address', value: 'no-reply@coresuite.internal' } },
+    { input: { q: 'First admin: given name', value: '', type: 'Ana' } },
+    { input: { q: 'First admin: family name', value: '', type: 'Santos' } },
+    { input: { q: 'First admin: work email', value: '', type: 'ana.santos@example.com' } },
+    { input: { q: 'First admin: employee number', value: '0001' } },
+    { input: { q: 'Their site code (created in the Hub)', value: 'MNL' } },
+    { input: { q: 'Site name', value: 'Manila' } },
+    { menu: { q: 'Where does the code come from?', items: [['github', 'GitHub, with a read-only deploy key per repository'], ['bundle', 'A bundle copied from a PC (bundle.sh)']], pick: 0 } },
+    { input: { q: 'GitHub owner of the repositories', value: 'JettBreak' } },
+    { yesno: { q: 'Environment: staging (branch dev)\nCode from: github   Certificates: ca   Mail: none\n\n  CoreNexus Hub    https://hub.coresuite.internal\n  CoreInventory    https://inventory.coresuite.internal\n  CoreAttendance   https://attendance.coresuite.internal\n  CoreTask         https://task.coresuite.internal\n  CoreProject      https://project.coresuite.internal\n\nFirst admin: Ana Santos <ana.santos@example.com>, site MNL\n\nInstall this?' } },
+    { step: 'keys' },
+    { head: '== GitHub deploy keys' },
+    { line: '' },
+    { line: 'Add these public keys on GitHub, one per repository:' },
+    { line: '' },
+    ...['CoreNexus', 'CoreKit', 'CoreInventory', 'CoreAttendance', 'CoreTask', 'CoreProject'].map((repo) => ({ line: '  JettBreak/' + repo + '  >  Settings > Deploy keys > Add deploy key', cls: 'dim', wait: 160 })),
+    { line: '  (each followed by its public key, ssh-ed25519 …)', cls: 'dim' },
+    { yesno: { q: 'Added them all? (No stops the installer; run it again later.)', hold: 1800 } },
+    { step: 'code' },
+    { head: '== Code' },
+    ...['CoreNexus', 'CoreKit', 'CoreInventory', 'CoreAttendance', 'CoreTask', 'CoreProject'].map((repo) => ({ line: '  mirror /opt/coresuite/repos/' + repo + '.git', cls: 'dim', wait: 220 })),
+    { step: 'packages' },
+    { head: '== Packages: PHP 8.5.12, MySQL 8.4, Apache, Supervisor' },
+    { line: '  dnf module enable php:remi-8.5 …', cls: 'dim', wait: 1200 },
+    { line: 'PHP 8.5.12 with every extension the apps need.' },
+    { line: 'MySQL root password set (in /root/.my.cnf).' },
+    ...['hub', 'inventory', 'attendance', 'task', 'project'].map((h) => ({ line: 'Added ' + h + '.coresuite.internal to this server’s /etc/hosts.', wait: 120 })),
+    { step: 'certs' },
+    { head: '== Certificates' },
+    { line: 'Made the CoreSuite certificate authority.' },
+    ...['hub', 'inventory', 'attendance', 'task', 'project'].map((h) => ({ line: 'Certificate for ' + h + '.coresuite.internal (until Feb  1 2029).', wait: 220 })),
+    { step: 'hub' },
+    { head: '== CoreNexus Hub' },
+    { line: '  CoreNexus Hub: app:oauth:generate-key', wait: 900 },
+    { line: '  CoreNexus Hub: app:requests:seed-forms' },
+    { line: '  CoreNexus Hub: app:checklists:seed' },
+    { head: '== SELinux and the firewall' },
+    { line: '  setsebool httpd_can_network_connect on; var/ labelled httpd_sys_rw_content_t; http, https open', cls: 'dim' },
+    { step: 'core-inventory' },
+    { head: '== CoreInventory' },
+    { line: '  Hub: registered core-inventory' },
+    { line: '  Hub: webhook' },
+    { line: '  Hub: grant: the Hub may call core-inventory (inventory.accountability inventory.clearance)' },
+    { line: '  CoreInventory: core:employees:reconcile', wait: 700 },
+    { line: '  ana.santos@example.com is the admin of CoreInventory.' },
+    { step: 'core-attendance' },
+    { head: '== CoreAttendance' },
+    { line: '  Hub: registered core-attendance' },
+    { line: '  Hub: topic attendance.punch_recorded' },
+    { line: '  Hub: topic attendance.punch_voided' },
+    { line: '  Hub: webhook' },
+    { line: '  CoreAttendance: core:employees:reconcile', wait: 600 },
+    { line: '  ana.santos@example.com is the admin of CoreAttendance.' },
+    { step: 'core-task' },
+    { head: '== CoreTask' },
+    { line: '  Hub: registered core-task' },
+    { line: '  Hub: topic task.created, task.updated, task.status_changed, task.deleted' },
+    { line: '  Hub: notification types task.assigned … task.commented (6)' },
+    { line: '  Hub: webhook' },
+    { line: '  Hub: grant: the Hub may call core-task (task.my_tasks)' },
+    { line: '  Waiting: grant on core-project (project.projects_read): core-project is not connected yet', cls: 'warn' },
+    { line: '  CoreTask: core:employees:reconcile', wait: 600 },
+    { line: '  ana.santos@example.com is the admin of CoreTask.' },
+    { step: 'core-project' },
+    { head: '== CoreProject' },
+    { line: '  Hub: registered core-project' },
+    { line: '  Hub: topic project.created … project.vendor_changed (8)' },
+    { line: '  Hub: notification type project.meeting_advice' },
+    { line: '  Hub: webhook' },
+    { line: '  Hub: grant: core-project may call core-task (task.tasks_read)' },
+    { line: '  Hub: grant: the Hub may call core-project (project.projects_read project.organisations_read)' },
+    { line: '  CoreProject: core:employees:reconcile', wait: 600 },
+    { line: '  ana.santos@example.com is the admin of CoreProject.' },
+    { step: 'link' },
+    { head: '== Connecting the apps with each other' },
+    { line: '  Hub: updated the webhook' },
+    { line: '  Hub: grant: core-task may call core-project (project.projects_read)' },
+    { line: 'The Hub learns the apps’ addresses (its cards and meeting lists).' },
+    { step: 'backups' },
+    { head: '== Backups and logs' },
+    { step: 'checks' },
+    { head: '== Checks' },
+    ...[['CoreNexus Hub', 'hub', true], ['CoreInventory', 'inventory', true], ['CoreAttendance', 'attendance', true], ['CoreTask', 'task', true], ['CoreProject', 'project', false]].flatMap(([name, prefix, worker]) => [
+      { ok: name + ' answers at https://' + prefix + '.coresuite.internal', wait: 160 },
+      { ok: name + ': database, migrations, Hub, queue', wait: 160 },
+      ...(worker ? [{ ok: name + ': worker running', wait: 160 }] : []),
+    ]),
+    { ok: 'Every app has what its manifest asks for in the Hub' },
+    { step: 'done' },
+    { msgbox: { q: 'Done. The report is /root/coresuite-20261030-1220.txt.\n\nThe first admin sets their password and two-factor sign-in here (shown once, not logged):\nhttps://hub.coresuite.internal/set-password/••••••••\n\nInstall the CoreSuite certificate authority once on every staff device and kiosk:\ncopy /root/coresuite-ca.crt to it.' } },
+    { prompt: '' },
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const out = $('out'), newt = $('newt'), dlg = $('dlg');
+  const playBtn = $('play'), restartBtn = $('restart'), speedSel = $('speed'), clock = $('clock');
+  const stepsEl = $('steps');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  STEPS.forEach((s) => {
+    const li = document.createElement('li');
+    li.dataset.id = s.id;
+    li.className = 'todo';
+    li.innerHTML = '<span class="mk" aria-hidden="true"></span><span></span><span class="min"></span>';
+    li.children[1].textContent = s.name;
+    li.children[2].textContent = s.min + ' min';
+    stepsEl.appendChild(li);
+  });
+
+  let run = 0, paused = true, speed = 1, serverMinutes = 0, started = false;
+  let resume = null;
+
+  function sleep(ms) {
+    const my = run;
+    return new Promise((resolve, reject) => {
+      let left = ms / speed;
+      const tick = () => {
+        if (my !== run) return reject(new Error('restart'));
+        if (paused) { resume = tick; return; }
+        const step = Math.min(left, 50);
+        left -= step;
+        if (left <= 0) return resolve();
+        setTimeout(tick, step);
+      };
+      tick();
+    });
+  }
+
+  function scrollDown() { out.scrollTop = out.scrollHeight; }
+  function addLine(text, cls) {
+    const span = document.createElement('span');
+    span.className = 'l ' + (cls || '');
+    span.textContent = text;
+    out.appendChild(span);
+    while (out.children.length > 400) out.firstChild.remove();
+    scrollDown();
+    return span;
+  }
+
+  function markStep(id) {
+    let reached = false;
+    serverMinutes = 0;
+    [...stepsEl.children].forEach((li) => {
+      const s = STEPS.find((x) => x.id === li.dataset.id);
+      if (id === 'done') { li.className = 'done'; serverMinutes += s.min; return; }
+      if (li.dataset.id === id) { li.className = 'now'; reached = true; serverMinutes += s.min; return; }
+      li.className = reached ? 'todo' : 'done';
+      if (!reached) serverMinutes += s.min;
+    });
+    clock.textContent = 'server time ' + serverMinutes + ' min';
+    const s = STEPS.find((x) => x.id === id);
+    $('what').textContent = id === 'done' ? 'Finished' : s.name;
+    $('why').textContent = id === 'done'
+      ? 'Every check passed. The first admin opens the invite link to set a password and two-factor sign-in; every other app then signs in through the Hub.'
+      : s.why;
+  }
+
+  function showNewt(html) { dlg.innerHTML = html; newt.hidden = false; }
+  function hideNewt() { newt.hidden = true; dlg.innerHTML = ''; }
+  const esc = (t) => t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const pad = (t, n) => (t + ' '.repeat(n)).slice(0, n);
+
+  async function checklist(c) {
+    const on = new Set(c.on);
+    let cur = 0;
+    const render = (btn) => showNewt(
+      '<div class="ttl">' + esc(c.title) + '</div><div class="q">' + esc(c.q) + '</div><div class="items">' +
+      c.items.map(([tag, label], i) => '<div class="it' + (i === cur && !btn ? ' cur' : '') + '">' + (on.has(i) ? '[*] ' : '[ ] ') + esc(pad(tag, 16)) + ' ' + esc(label) + '</div>').join('') +
+      '</div><div class="btns"><span class="btn' + (btn === 'ok' ? ' cur' : '') + '">  &lt;Ok&gt;  </span><span class="btn">&lt;Cancel&gt;</span></div><div class="keyhint">' + (btn ? 'Enter' : '↓ Space') + '</div>');
+    render();
+    await sleep(900);
+    for (let i = 1; i < c.items.length; i++) { cur = i; render(); await sleep(260); }
+    await sleep(400);
+    render('ok');
+    await sleep(600);
+    hideNewt();
+  }
+
+  async function menu(m) {
+    const render = (btn) => showNewt(
+      '<div class="ttl">CoreSuite installer</div><div class="q">' + esc(m.q) + '</div><div class="items">' +
+      m.items.map(([tag, label], i) => '<div class="it' + (i === m.pick ? ' cur' : '') + '">' + esc(pad(tag, 12)) + ' ' + esc(label) + '</div>').join('') +
+      '</div><div class="btns"><span class="btn' + (btn ? ' cur' : '') + '">  &lt;Ok&gt;  </span><span class="btn">&lt;Cancel&gt;</span></div><div class="keyhint">Enter</div>');
+    render();
+    await sleep(800);
+    render(true);
+    await sleep(350);
+    hideNewt();
+  }
+
+  async function input(f) {
+    let value = f.value;
+    const render = (btn) => showNewt(
+      '<div class="ttl">CoreSuite installer</div><div class="q">' + esc(f.q) + '</div><div class="entry">' + esc(value) + (btn ? '' : '<span class="caret"></span>') +
+      '</div><div class="btns"><span class="btn' + (btn ? ' cur' : '') + '">  &lt;Ok&gt;  </span><span class="btn">&lt;Cancel&gt;</span></div><div class="keyhint">' + (f.type ? 'typing' : 'Enter') + '</div>');
+    render();
+    await sleep(f.type ? 500 : 650);
+    if (f.type) {
+      for (const ch of f.type) { value += ch; render(); await sleep(reduced ? 20 : 70); }
+      await sleep(300);
+    }
+    render(true);
+    await sleep(300);
+    hideNewt();
+  }
+
+  async function yesno(y) {
+    const render = (btn) => showNewt(
+      '<div class="ttl">CoreSuite installer</div><div class="q">' + esc(y.q) + '</div><div class="btns"><span class="btn' + (btn ? ' cur' : '') + '">  &lt;Yes&gt;  </span><span class="btn">  &lt;No&gt;  </span></div><div class="keyhint">Enter</div>');
+    render();
+    await sleep(y.hold || 2600);
+    render(true);
+    await sleep(450);
+    hideNewt();
+  }
+
+  async function msgbox(m) {
+    showNewt('<div class="ttl">CoreSuite installer</div><div class="q">' + esc(m.q) + '</div><div class="btns"><span class="btn cur">  &lt;Ok&gt;  </span></div>');
+    await sleep(5200);
+    hideNewt();
+  }
+
+  async function play() {
+    const my = ++run;
+    out.innerHTML = '';
+    hideNewt();
+    markStep('start');
+    try {
+      for (const a of SCRIPT) {
+        if (my !== run) return;
+        if (a.step) { markStep(a.step); continue; }
+        if ('prompt' in a) {
+          const span = addLine('', 'prompt');
+          span.innerHTML = '<b>[root@coresuite ~]#</b> ';
+          const caret = document.createElement('span');
+          caret.className = 'caret';
+          span.appendChild(caret);
+          for (const ch of a.prompt) { caret.before(ch); await sleep(reduced ? 10 : 45); }
+          if (a.prompt) { await sleep(400); caret.remove(); }
+          continue;
+        }
+        if (a.head) { addLine('', ''); addLine(a.head, 'head'); await sleep(450); continue; }
+        if ('line' in a) { addLine(a.line, a.cls); await sleep(a.wait || 260); continue; }
+        if (a.ok) { const s = addLine('', 'ok'); s.innerHTML = '  <b>ok</b>   '; s.append(a.ok); await sleep(a.wait || 220); continue; }
+        if (a.checklist) { await checklist(a.checklist); continue; }
+        if (a.menu) { await menu(a.menu); continue; }
+        if (a.input) { await input(a.input); continue; }
+        if (a.yesno) { await yesno(a.yesno); continue; }
+        if (a.msgbox) { await msgbox(a.msgbox); continue; }
+      }
+      paused = true;
+      playBtn.textContent = 'Play again';
+      started = false;
+    } catch (e) {
+      if (e.message !== 'restart') throw e;
+    }
+  }
+
+  playBtn.addEventListener('click', () => {
+    if (!started) { started = true; paused = false; playBtn.textContent = 'Pause'; play(); return; }
+    paused = !paused;
+    playBtn.textContent = paused ? 'Play' : 'Pause';
+    if (!paused && resume) { const r = resume; resume = null; r(); }
+  });
+  restartBtn.addEventListener('click', () => {
+    run++;
+    resume = null;
+    started = true;
+    paused = false;
+    playBtn.textContent = 'Pause';
+    play();
+  });
+  speedSel.addEventListener('change', () => { speed = Number(speedSel.value) || 1; });
+
+  // At rest: the prompt, ready to start. It starts by itself unless the viewer prefers less motion.
+  const first = addLine('', 'prompt');
+  first.innerHTML = '<b>[root@coresuite ~]#</b> sudo bash get-coresuite.sh <span class="caret"></span>';
+  markStep('start');
+  if (!reduced) setTimeout(() => { if (!started) playBtn.click(); }, 900);
+})();
+</script>
+</body>
+</html>
