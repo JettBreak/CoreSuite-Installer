@@ -8,7 +8,7 @@ It is a simulation. The text is the installer's real output from test runs on 30
 
 ## Publish with GitHub Pages
 
-This repository is public. Under **Settings › Pages**, set **Source** to *Deploy from a branch*, **Branch** to `main` and the folder to `/ (root)`, then **Save**. GitHub shows the address after a minute, `https://<owner>.github.io/coresuite-replay/`.
+This repository is public. Under **Settings › Pages**, set **Source** to *Deploy from a branch*, **Branch** to `main` and the folder to `/ (root)`, then **Save**. GitHub shows the address after a minute, `https://<owner>.github.io/CoreSuite-Installer/`.
 
 ## Update it
 
