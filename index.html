@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>CoreSuite Installer Replay</title>
-<meta name="description" content="A step-by-step replay of a CoreSuite first install on AlmaLinux 9: the questions, the Hub and four apps connected, and the final checks.">
+<meta name="description" content="Replays of a CoreSuite first install and a one-app update on AlmaLinux 9: the questions, the Hub and four apps connected, and the checks.">
 <style>
 :root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
 body { margin: 0; }
@@ -67,6 +67,11 @@ header { display: grid; gap: 6px; }
 h1 { font-family: var(--display); font-weight: 700; font-size: clamp(1.6rem, 3.2vw, 2.3rem); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
 .lede { margin: 0; color: var(--muted); max-width: 70ch; }
 .tag { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+
+.scenarios { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; margin-top: 6px; background: var(--chip); border-radius: 9px; justify-self: start; }
+.scenarios button { font: 700 0.9rem var(--body); border: 0; border-radius: 6px; padding: 7px 14px; background: transparent; color: var(--muted); cursor: pointer; }
+.scenarios button[aria-pressed="true"] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 2px rgba(10, 14, 30, 0.12); }
+.scenarios button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .stage { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
 @media (max-width: 960px) { .stage { grid-template-columns: minmax(0, 1fr); } }
@@ -150,7 +155,11 @@ aside { display: grid; gap: 16px; min-width: 0; }
   <header>
     <span class="tag">Simulation · sample data</span>
     <h1>CoreSuite Installer Replay</h1>
-    <p class="lede">A replay of a first install on a fresh AlmaLinux 9 server: the questions as IT answers them, then the Hub and four apps installed and connected, ending with the checks. The output comes from real test runs on 30 October 2026; keys, passwords and links are left out.</p>
+    <p class="lede">Two replays on an AlmaLinux 9 server: the first install, from the questions IT answers to the Hub and four apps connected and checked, and a later update of one app. The output comes from real test runs in October and November 2026; keys, passwords and links are left out.</p>
+    <div class="scenarios" role="group" aria-label="Replay">
+      <button type="button" data-scenario="install" aria-pressed="true">First install</button>
+      <button type="button" data-scenario="update" aria-pressed="false">Update one app</button>
+    </div>
   </header>
 
   <div class="stage">
@@ -338,21 +347,101 @@ aside { display: grid; gap: 16px; min-width: 0; }
     { prompt: '' },
   ];
 
+  // A later run: one app updated (the run on the AlmaLinux VM, 1 November 2026).
+  const UPDATE_STEPS = [
+    { id: 'menu', name: 'Choose what to do', min: 1, why: 'Run again, the installer knows what is installed and offers its later runs. Update one app takes the newest code of the app you pick.' },
+    { id: 'clock', name: 'Clock', min: 1, why: 'The clock is checked against a time server first: attendance times, sign-in tokens and certificates all depend on it.' },
+    { id: 'backup', name: 'Backup', min: 1, why: 'A backup of every database and upload folder before anything changes, kept 14 days on the server.' },
+    { id: 'code', name: 'Code', min: 1, why: 'The mirrors fetch the newest commits from GitHub (or a new bundle), CoreKit included, since the apps build with it.' },
+    { id: 'app', name: 'CoreAttendance', min: 3, why: 'The app’s own deploy/update.sh, run as its user: pull, install, build the CSS and assets, run new migrations, clear the cache, restart its worker.' },
+    { id: 'link', name: 'Connect the apps', min: 1, why: 'Every app is connected again, so a change to the updated app’s manifest (a new topic, scope or notification type) reaches the Hub. Nothing changed this time.' },
+    { id: 'checks', name: 'Checks', min: 1, why: 'The same 15 checks as after the install: every app answers, passes its health check and has its worker running.' },
+  ];
+
+  const UPDATE_SCRIPT = [
+    { step: 'menu' },
+    { prompt: 'sudo bash /opt/coresuite/installer/install.sh' },
+    { menu: { q: 'CoreSuite is installed here. What now?', from: 0, pick: 2, items: [
+      ['check', 'Check: run every check and write a report'],
+      ['update', 'Update all: back up, then the newest code of every app'],
+      ['update-app', 'Update one app: back up, then the newest code of one app'],
+      ['add', 'Add an app'],
+      ['addresses', 'Change addresses (the company domain)'],
+      ['rotate', 'Rotate an app’s secrets'],
+      ['install', 'Carry on an install that stopped'],
+    ] } },
+    { menu: { q: 'Update which app?', pick: 0, items: [
+      ['core-attendance', 'CoreAttendance'], ['core-inventory', 'CoreInventory'], ['core-project', 'CoreProject'], ['core-task', 'CoreTask'], ['hub', 'CoreNexus Hub'],
+    ] } },
+    { head: '== Update CoreAttendance' },
+    { step: 'clock' },
+    { head: '== Clock' },
+    { line: 'Clock: 2026-10-31 23:49:35 UTC, in sync.' },
+    { step: 'backup' },
+    { line: 'Backing up first.' },
+    { line: '  coresuite-backup: 5 databases and their upload folders into /var/backups/coresuite/2026-11-01', cls: 'dim', wait: 1400 },
+    { step: 'code' },
+    { head: '== Code' },
+    ...['CoreNexus', 'CoreKit', 'CoreInventory', 'CoreAttendance', 'CoreTask', 'CoreProject'].map((repo) => ({ line: '  fetch /opt/coresuite/repos/' + repo + '.git', cls: 'dim', wait: 200 })),
+    { step: 'app' },
+    { head: '== CoreAttendance' },
+    { line: 'Using /usr/bin/php (PHP 8.5.12)', cls: 'dim' },
+    { line: 'Fast-forward', cls: 'dim' },
+    { line: '  composer install --no-dev --optimize-autoloader', cls: 'dim', wait: 1100 },
+    { line: '  Generating optimized autoload files', cls: 'dim' },
+    { line: '  tailwind:build --minify, asset-map:compile', cls: 'dim', wait: 800 },
+    { line: '  doctrine:migrations:migrate   [OK] Already at the latest version', cls: 'dim' },
+    { line: '  cache:clear   [OK] Cache for the "prod" environment was successfully cleared.', cls: 'dim' },
+    { line: '  supervisorctl restart coreattendance-worker:*', cls: 'dim' },
+    { line: 'Updated to 5747205 update.sh runs on .env.prod.local alone' },
+    { step: 'link' },
+    { head: '== Connecting the apps with each other' },
+    { line: '  (nothing to change)', cls: 'dim' },
+    { step: 'checks' },
+    { head: '== Checks' },
+    ...[['CoreAttendance', 'attendance', true], ['CoreInventory', 'inventory', true], ['CoreProject', 'project', false], ['CoreTask', 'task', true], ['CoreNexus Hub', 'hub', true]].flatMap(([name, prefix, worker]) => [
+      { ok: name + ' answers at https://' + prefix + '.coresuite.internal', wait: 160 },
+      { ok: name + ': database, migrations, Hub, queue', wait: 160 },
+      ...(worker ? [{ ok: name + ': worker running', wait: 160 }] : []),
+    ]),
+    { ok: 'Every app has what its manifest asks for in the Hub' },
+    { step: 'done' },
+    { msgbox: { q: 'Done. The report is /root/coresuite-20261101-0752.txt.' } },
+    { prompt: '' },
+  ];
+
+  const SCENARIOS = {
+    install: {
+      steps: STEPS, script: SCRIPT, intro: 'sudo bash get-coresuite.sh',
+      what: 'Before it starts', why: 'IT copies one file, get-coresuite.sh, to the server and runs it as root. It fetches the installer from GitHub with a read-only key, then starts it.',
+      done: 'Every check passed. The first admin opens the invite link to set a password and two-factor sign-in; every other app then signs in through the Hub.',
+    },
+    update: {
+      steps: UPDATE_STEPS, script: UPDATE_SCRIPT, intro: 'sudo bash /opt/coresuite/installer/install.sh',
+      what: 'Before it starts', why: 'A new version of CoreAttendance is on GitHub. IT runs the installer again on the server, as root.',
+      done: 'CoreAttendance runs the new version, and every app still passes its checks. The backup taken first stays for 14 days, in case it has to go back.',
+    },
+  };
+  let scenario = SCENARIOS.install;
+
   const $ = (id) => document.getElementById(id);
   const out = $('out'), newt = $('newt'), dlg = $('dlg');
   const playBtn = $('play'), restartBtn = $('restart'), speedSel = $('speed'), clock = $('clock');
   const stepsEl = $('steps');
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  STEPS.forEach((s) => {
-    const li = document.createElement('li');
-    li.dataset.id = s.id;
-    li.className = 'todo';
-    li.innerHTML = '<span class="mk" aria-hidden="true"></span><span></span><span class="min"></span>';
-    li.children[1].textContent = s.name;
-    li.children[2].textContent = s.min + ' min';
-    stepsEl.appendChild(li);
-  });
+  function buildSteps() {
+    stepsEl.innerHTML = '';
+    scenario.steps.forEach((s) => {
+      const li = document.createElement('li');
+      li.dataset.id = s.id;
+      li.className = 'todo';
+      li.innerHTML = '<span class="mk" aria-hidden="true"></span><span></span><span class="min"></span>';
+      li.children[1].textContent = s.name;
+      li.children[2].textContent = s.min + ' min';
+      stepsEl.appendChild(li);
+    });
+  }
 
   let run = 0, paused = true, speed = 1, serverMinutes = 0, started = false;
   let resume = null;
@@ -388,18 +477,16 @@ aside { display: grid; gap: 16px; min-width: 0; }
     let reached = false;
     serverMinutes = 0;
     [...stepsEl.children].forEach((li) => {
-      const s = STEPS.find((x) => x.id === li.dataset.id);
+      const s = scenario.steps.find((x) => x.id === li.dataset.id);
       if (id === 'done') { li.className = 'done'; serverMinutes += s.min; return; }
       if (li.dataset.id === id) { li.className = 'now'; reached = true; serverMinutes += s.min; return; }
       li.className = reached ? 'todo' : 'done';
       if (!reached) serverMinutes += s.min;
     });
     clock.textContent = 'server time ' + serverMinutes + ' min';
-    const s = STEPS.find((x) => x.id === id);
+    const s = scenario.steps.find((x) => x.id === id);
     $('what').textContent = id === 'done' ? 'Finished' : s.name;
-    $('why').textContent = id === 'done'
-      ? 'Every check passed. The first admin opens the invite link to set a password and two-factor sign-in; every other app then signs in through the Hub.'
-      : s.why;
+    $('why').textContent = id === 'done' ? scenario.done : s.why;
   }
 
   function showNewt(html) { dlg.innerHTML = html; newt.hidden = false; }
@@ -424,12 +511,17 @@ aside { display: grid; gap: 16px; min-width: 0; }
   }
 
   async function menu(m) {
+    // With "from", the cursor starts there and moves down to the pick, one arrow press at a time.
+    let cur = typeof m.from === 'number' ? m.from : m.pick;
+    const width = Math.max(12, ...m.items.map(([tag]) => tag.length));
     const render = (btn) => showNewt(
       '<div class="ttl">CoreSuite installer</div><div class="q">' + esc(m.q) + '</div><div class="items">' +
-      m.items.map(([tag, label], i) => '<div class="it' + (i === m.pick ? ' cur' : '') + '">' + esc(pad(tag, 12)) + ' ' + esc(label) + '</div>').join('') +
-      '</div><div class="btns"><span class="btn' + (btn ? ' cur' : '') + '">  &lt;Ok&gt;  </span><span class="btn">&lt;Cancel&gt;</span></div><div class="keyhint">Enter</div>');
+      m.items.map(([tag, label], i) => '<div class="it' + (i === cur ? ' cur' : '') + '">' + esc(pad(tag, width)) + ' ' + esc(label) + '</div>').join('') +
+      '</div><div class="btns"><span class="btn' + (btn ? ' cur' : '') + '">  &lt;Ok&gt;  </span><span class="btn">&lt;Cancel&gt;</span></div><div class="keyhint">' + (cur !== m.pick ? '↓' : 'Enter') + '</div>');
     render();
     await sleep(800);
+    while (cur < m.pick) { cur++; render(); await sleep(420); }
+    if (typeof m.from === 'number') await sleep(400);
     render(true);
     await sleep(350);
     hideNewt();
@@ -471,9 +563,9 @@ aside { display: grid; gap: 16px; min-width: 0; }
     const my = ++run;
     out.innerHTML = '';
     hideNewt();
-    markStep('start');
+    markStep(scenario.steps[0].id);
     try {
-      for (const a of SCRIPT) {
+      for (const a of scenario.script) {
         if (my !== run) return;
         if (a.step) { markStep(a.step); continue; }
         if ('prompt' in a) {
@@ -519,10 +611,41 @@ aside { display: grid; gap: 16px; min-width: 0; }
   });
   speedSel.addEventListener('change', () => { speed = Number(speedSel.value) || 1; });
 
-  // At rest: the prompt, ready to start. It starts by itself unless the viewer prefers less motion.
-  const first = addLine('', 'prompt');
-  first.innerHTML = '<b>[root@coresuite ~]#</b> sudo bash get-coresuite.sh <span class="caret"></span>';
-  markStep('start');
+  // At rest: the scenario's first command at the prompt, ready to start.
+  function atRest() {
+    hideNewt();
+    out.innerHTML = '';
+    const first = addLine('', 'prompt');
+    first.innerHTML = '<b>[root@coresuite ~]#</b> ';
+    first.append(scenario.intro + ' ');
+    const caret = document.createElement('span');
+    caret.className = 'caret';
+    first.appendChild(caret);
+    buildSteps();
+    stepsEl.firstElementChild.className = 'now';
+    clock.textContent = 'server time 0 min';
+    $('what').textContent = scenario.what;
+    $('why').textContent = scenario.why;
+  }
+
+  document.querySelectorAll('[data-scenario]').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      if (SCENARIOS[tab.dataset.scenario] === scenario) return;
+      document.querySelectorAll('[data-scenario]').forEach((t) => t.setAttribute('aria-pressed', String(t === tab)));
+      run++;
+      resume = null;
+      scenario = SCENARIOS[tab.dataset.scenario];
+      atRest();
+      // Switching starts the other replay straight away.
+      started = true;
+      paused = false;
+      playBtn.textContent = 'Pause';
+      play();
+    });
+  });
+
+  // It starts by itself unless the viewer prefers less motion.
+  atRest();
   if (!reduced) setTimeout(() => { if (!started) playBtn.click(); }, 900);
 })();
 </script>
